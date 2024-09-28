@@ -1,10 +1,12 @@
 import tkinter as tk
 from tkinter import messagebox
+import sqlite3
 
+# Task class remains the same
 class Task:
-    def __init__(self, description):
+    def __init__(self, description, completed=False):
         self.description = description
-        self.completed = False
+        self.completed = completed
 
     def mark_completed(self):
         self.completed = True
@@ -16,23 +18,57 @@ class Task:
 
 class TaskList:
     def __init__(self):
+        # Connect to the SQLite database (or create it)
+        self.conn = sqlite3.connect('tasks.db')
+        self.cursor = self.conn.cursor()
+        # Create a table for tasks if it doesn't exist
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                description TEXT NOT NULL,
+                completed INTEGER NOT NULL
+            )
+        ''')
+        self.conn.commit()
+        self.load_tasks()
+
+    def load_tasks(self):
+        # Load tasks from the database
         self.tasks = []
+        self.cursor.execute("SELECT id, description, completed FROM tasks")
+        rows = self.cursor.fetchall()
+        for row in rows:
+            task = Task(row[1], bool(row[2]))
+            self.tasks.append(task)
 
     def add_task(self, description):
         task = Task(description)
         self.tasks.append(task)
+        # Insert the task into the database
+        self.cursor.execute("INSERT INTO tasks (description, completed) VALUES (?, ?)", (description, 0))
+        self.conn.commit()
 
     def complete_task(self, index):
         if 0 <= index < len(self.tasks):
             self.tasks[index].mark_completed()
+            # Update the database
+            self.cursor.execute("UPDATE tasks SET completed = 1 WHERE id = ?", (index + 1,))
+            self.conn.commit()
         else:
             messagebox.showerror("Błąd", "Nieprawidłowy indeks zadania.")
+
+    def remove_completed_tasks(self):
+        # Remove completed tasks from both the list and the database
+        self.tasks = [task for task in self.tasks if not task.completed]
+        self.cursor.execute("DELETE FROM tasks WHERE completed = 1")
+        self.conn.commit()
 
     def show_tasks(self):
         return [str(task) for task in self.tasks]
 
-    def remove_completed_tasks(self):
-        self.tasks = [task for task in self.tasks if not task.completed]
+    def close(self):
+        # Close the database connection
+        self.conn.close()
 
 
 # UI Code
@@ -65,6 +101,9 @@ class TaskApp:
 
         self.update_task_list()
 
+        # Close the database connection when the app closes
+        root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
     def add_task(self):
         task_description = self.task_entry.get()
         if task_description:
@@ -90,6 +129,10 @@ class TaskApp:
         self.tasks_box.delete(0, tk.END)
         for task in self.task_list.show_tasks():
             self.tasks_box.insert(tk.END, task)
+
+    def on_closing(self):
+        self.task_list.close()
+        self.root.destroy()
 
 
 if __name__ == "__main__":
