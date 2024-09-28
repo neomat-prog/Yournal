@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QPushButton, QLabel, QMessageBox, QInputDialog, QWidget
 )
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 
 
 class Journal:
@@ -100,7 +101,6 @@ class Journal:
             return f"Error deleting entry: {e}"
 
 
-# PyQt5 Main Window
 class JournalApp(QMainWindow):
     TITLE_MAX_LENGTH = 50
 
@@ -111,7 +111,8 @@ class JournalApp(QMainWindow):
 
         # Set window title and dimensions
         self.setWindowTitle("Journal Manager")
-        self.setGeometry(300, 200, 400, 600)
+        self.setGeometry(300, 200, 600, 400)
+        self.setStyleSheet("background-color: #2C2C2C; color: #D3D3D3;")
 
         # Main layout
         self.main_widget = QWidget(self)
@@ -119,37 +120,54 @@ class JournalApp(QMainWindow):
         self.main_layout = QVBoxLayout(self.main_widget)
 
         # Title Label
-        title_label = QLabel("Journal Manager", self)
-        title_label.setStyleSheet("font-size: 22px; font-weight: bold; color: #333;")
-        title_label.setAlignment(Qt.AlignCenter)
-        self.main_layout.addWidget(title_label)
+        self.title_label = QLabel("Journal Manager", self)
+        self.title_label.setFont(QFont("Arial", 20, QFont.Bold))
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.main_layout.addWidget(self.title_label)
 
         # Add Entry Button
         self.add_entry_btn = QPushButton("Add Entry", self)
+        self.add_entry_btn.setFont(QFont("Arial", 14))
+        self.add_entry_btn.setStyleSheet(
+            "background-color: #4A90E2; color: white; border: 1px solid #3A80C2; border-radius: 10px;"
+        )
         self.add_entry_btn.clicked.connect(self.add_entry)
-        self.add_entry_btn.setStyleSheet("background-color: #3498db; color: white; font-size: 16px; padding: 10px;")
         self.main_layout.addWidget(self.add_entry_btn)
 
         # Show Entries Button
         self.show_entries_btn = QPushButton("Show All Entries", self)
+        self.show_entries_btn.setFont(QFont("Arial", 14))
+        self.show_entries_btn.setStyleSheet(
+            "background-color: #4A90E2; color: white; border: 1px solid #3A80C2; border-radius: 10px;"
+        )
         self.show_entries_btn.clicked.connect(self.show_entries)
-        self.show_entries_btn.setStyleSheet("background-color: #3498db; color: white; font-size: 16px; padding: 10px;")
         self.main_layout.addWidget(self.show_entries_btn)
 
         # Edit Entry Button
         self.edit_entry_btn = QPushButton("Edit Entry", self)
+        self.edit_entry_btn.setFont(QFont("Arial", 14))
+        self.edit_entry_btn.setStyleSheet(
+            "background-color: #F39C12; color: white; border: 1px solid #D68C10; border-radius: 10px;"
+        )
         self.edit_entry_btn.clicked.connect(self.edit_entry)
-        self.edit_entry_btn.setStyleSheet("background-color: #3498db; color: white; font-size: 16px; padding: 10px;")
         self.main_layout.addWidget(self.edit_entry_btn)
 
         # Delete Entry Button
         self.delete_entry_btn = QPushButton("Delete Entry", self)
+        self.delete_entry_btn.setFont(QFont("Arial", 14))
+        self.delete_entry_btn.setStyleSheet(
+            "background-color: #E74C3C; color: white; border: 1px solid #D43F3A; border-radius: 10px;"
+        )
         self.delete_entry_btn.clicked.connect(self.delete_entry)
-        self.delete_entry_btn.setStyleSheet("background-color: #3498db; color: white; font-size: 16px; padding: 10px;")
         self.main_layout.addWidget(self.delete_entry_btn)
 
+        # Footer Label
+        self.footer_label = QLabel("Created with PyQt5", self)
+        self.footer_label.setAlignment(Qt.AlignCenter)
+        self.footer_label.setStyleSheet("color: #AAB8C2;")
+        self.main_layout.addWidget(self.footer_label)
+
     def add_entry(self):
-        """Add a new journal entry with a title character limit."""
         title, ok1 = QInputDialog.getText(self, "Add Entry", f"Enter the title (Max {JournalApp.TITLE_MAX_LENGTH} characters):")
         if ok1 and len(title) > JournalApp.TITLE_MAX_LENGTH:
             QMessageBox.warning(self, "Warning", f"Title cannot exceed {JournalApp.TITLE_MAX_LENGTH} characters!")
@@ -162,7 +180,6 @@ class JournalApp(QMainWindow):
             QMessageBox.warning(self, "Warning", "Title or content cannot be empty!")
 
     def show_entries(self):
-        """Show all journal entries in a popup."""
         entries = self.journal.get_all_entries()
         if entries:
             entry_list = "\n".join([f"#{row[1]} | {row[2]} | {row[3]} | {row[4]}" for row in entries])
@@ -171,7 +188,6 @@ class JournalApp(QMainWindow):
             QMessageBox.information(self, "All Entries", "No entries found.")
 
     def edit_entry(self):
-        """Edit an existing journal entry with title character limit."""
         entry_number, ok = QInputDialog.getInt(self, "Edit Entry", "Enter the entry number to edit:")
         if ok:
             new_title, ok1 = QInputDialog.getText(self, "Edit Entry", f"Enter the new title (Max {JournalApp.TITLE_MAX_LENGTH} characters):")
@@ -186,7 +202,6 @@ class JournalApp(QMainWindow):
                 QMessageBox.warning(self, "Warning", "Nothing to update!")
 
     def delete_entry(self):
-        """Delete an existing journal entry."""
         entry_number, ok = QInputDialog.getInt(self, "Delete Entry", "Enter the entry number to delete:")
         if ok:
             result = self.journal.delete_entry(entry_number)
@@ -199,3 +214,5 @@ if __name__ == "__main__":
     window = JournalApp()
     window.show()
     sys.exit(app.exec_())
+
+
