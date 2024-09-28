@@ -173,7 +173,7 @@ class JournalApp(QMainWindow):
         self.edit_entry_btn.setStyleSheet(
             "background-color: #F39C12; color: white; border: 1px solid #D68C10; border-radius: 10px;"
         )
-        self.edit_entry_btn.clicked.connect(self.edit_entry)
+        self.edit_entry_btn.clicked.connect(self.select_entry_for_edit)
         self.main_layout.addWidget(self.edit_entry_btn)
 
         # Delete Entry Button
@@ -182,7 +182,7 @@ class JournalApp(QMainWindow):
         self.delete_entry_btn.setStyleSheet(
             "background-color: #E74C3C; color: white; border: 1px solid #D43F3A; border-radius: 10px;"
         )
-        self.delete_entry_btn.clicked.connect(self.delete_entry)
+        self.delete_entry_btn.clicked.connect(self.select_entry_for_deletion)
         self.main_layout.addWidget(self.delete_entry_btn)
 
         # Footer Label
@@ -261,41 +261,68 @@ class JournalApp(QMainWindow):
         entries_window.setLayout(layout)
         entries_window.exec_()  # Show the entries dialog
 
-    def edit_entry(self):
-        """Show a dialog to edit an existing journal entry."""
-        entry_number, ok = QInputDialog.getInt(self, "Edit Entry", "Enter Entry Number:")
-        if ok:
-            entry = self.journal.get_all_entries()
-            for e in entry:
-                if e[1] == entry_number:
-                    dialog = QDialog(self)
-                    dialog.setWindowTitle(f"Edit Entry #{entry_number}")
-                    dialog.setGeometry(300, 200, 400, 300)
+    def select_entry_for_edit(self):
+        """Show a dialog to select an entry for editing."""
+        entries = self.journal.get_all_entries()
+        if not entries:
+            QMessageBox.warning(self, "No Entries", "No entries found to edit.")
+            return
 
-                    layout = QVBoxLayout(dialog)
+        entry_selector = QDialog(self)
+        entry_selector.setWindowTitle("Select Entry to Edit")
+        entry_selector.setGeometry(300, 200, 400, 300)
 
-                    # Text edit for the title
-                    title_edit = QTextEdit()
-                    title_edit.setPlainText(e[2])  # Set current title
-                    title_edit.setFixedHeight(40)
-                    layout.addWidget(QLabel(f"Edit Title (Max {JournalApp.TITLE_MAX_LENGTH} characters):"))
-                    layout.addWidget(title_edit)
+        layout = QVBoxLayout(entry_selector)
 
-                    # Text edit for the content
-                    content_edit = QTextEdit()
-                    content_edit.setPlainText(e[3])  # Set current content
-                    layout.addWidget(QLabel("Edit Content:"))
-                    layout.addWidget(content_edit)
+        # List widget to display the entries
+        entries_list = QListWidget(entry_selector)
+        for entry in entries:
+            entry_text = f"Entry #{entry[1]}: {entry[2]}"
+            item = QListWidgetItem(entry_text)
+            entries_list.addItem(item)
+        layout.addWidget(entries_list)
 
-                    # Save button
-                    save_btn = QPushButton("Save Changes")
-                    save_btn.clicked.connect(lambda: self.save_edit_entry(entry_number, title_edit.toPlainText(), content_edit.toPlainText(), dialog))
-                    layout.addWidget(save_btn)
+        # Button to edit the selected entry
+        edit_button = QPushButton("Edit Selected Entry")
+        edit_button.clicked.connect(lambda: self.edit_entry(entries_list.currentRow(), entry_selector))
+        layout.addWidget(edit_button)
 
-                    dialog.setLayout(layout)
-                    dialog.exec_()
-                    return
-            QMessageBox.warning(self, "Entry Not Found", f"No entry found with number {entry_number}.")
+        entry_selector.setLayout(layout)
+        entry_selector.exec_()
+
+    def edit_entry(self, index, dialog):
+        """Edit the selected entry."""
+        entries = self.journal.get_all_entries()
+        selected_entry = entries[index]
+        entry_number = selected_entry[1]
+
+        edit_dialog = QDialog(self)
+        edit_dialog.setWindowTitle(f"Edit Entry #{entry_number}")
+        edit_dialog.setGeometry(300, 200, 400, 300)
+
+        layout = QVBoxLayout(edit_dialog)
+
+        # Text edit for the title
+        title_edit = QTextEdit()
+        title_edit.setPlainText(selected_entry[2])  # Set current title
+        title_edit.setFixedHeight(40)
+        layout.addWidget(QLabel(f"Edit Title (Max {JournalApp.TITLE_MAX_LENGTH} characters):"))
+        layout.addWidget(title_edit)
+
+        # Text edit for the content
+        content_edit = QTextEdit()
+        content_edit.setPlainText(selected_entry[3])  # Set current content
+        layout.addWidget(QLabel("Edit Content:"))
+        layout.addWidget(content_edit)
+
+        # Save button
+        save_btn = QPushButton("Save Changes")
+        save_btn.clicked.connect(lambda: self.save_edit_entry(entry_number, title_edit.toPlainText(), content_edit.toPlainText(), edit_dialog))
+        layout.addWidget(save_btn)
+
+        edit_dialog.setLayout(layout)
+        edit_dialog.exec_()
+        dialog.close()  # Close the entry selector dialog after editing
 
     def save_edit_entry(self, entry_number, new_title, new_content, dialog):
         if len(new_title) > JournalApp.TITLE_MAX_LENGTH:
@@ -309,12 +336,44 @@ class JournalApp(QMainWindow):
         QMessageBox.information(self, "Entry Edited", result)
         dialog.close()
 
-    def delete_entry(self):
-        """Show a dialog to delete a journal entry."""
-        entry_number, ok = QInputDialog.getInt(self, "Delete Entry", "Enter Entry Number:")
-        if ok:
-            result = self.journal.delete_entry(entry_number)
-            QMessageBox.information(self, "Entry Deletion", result)
+    def select_entry_for_deletion(self):
+        """Show a dialog to select an entry for deletion."""
+        entries = self.journal.get_all_entries()
+        if not entries:
+            QMessageBox.warning(self, "No Entries", "No entries found to delete.")
+            return
+
+        entry_selector = QDialog(self)
+        entry_selector.setWindowTitle("Select Entry to Delete")
+        entry_selector.setGeometry(300, 200, 400, 300)
+
+        layout = QVBoxLayout(entry_selector)
+
+        # List widget to display the entries
+        entries_list = QListWidget(entry_selector)
+        for entry in entries:
+            entry_text = f"Entry #{entry[1]}: {entry[2]}"
+            item = QListWidgetItem(entry_text)
+            entries_list.addItem(item)
+        layout.addWidget(entries_list)
+
+        # Button to delete the selected entry
+        delete_button = QPushButton("Delete Selected Entry")
+        delete_button.clicked.connect(lambda: self.delete_entry(entries_list.currentRow(), entry_selector))
+        layout.addWidget(delete_button)
+
+        entry_selector.setLayout(layout)
+        entry_selector.exec_()
+
+    def delete_entry(self, index, dialog):
+        """Delete the selected entry."""
+        entries = self.journal.get_all_entries()
+        selected_entry = entries[index]
+        entry_number = selected_entry[1]
+
+        result = self.journal.delete_entry(entry_number)
+        QMessageBox.information(self, "Entry Deletion", result)
+        dialog.close()
 
 
 if __name__ == "__main__":
@@ -322,6 +381,7 @@ if __name__ == "__main__":
     window = JournalApp()
     window.show()
     sys.exit(app.exec_())
+
 
 
 
