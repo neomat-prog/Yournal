@@ -3,10 +3,12 @@ import sqlite3
 import time
 import pygame
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QPushButton, QLabel, QMessageBox, QInputDialog, QWidget
+    QApplication, QMainWindow, QVBoxLayout, QPushButton, QLabel, QMessageBox,
+    QInputDialog, QWidget, QDialog, QListWidget, QListWidgetItem, QTextEdit
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QSize  # Added QSize import
 from PyQt5.QtGui import QFont
+
 
 class Journal:
     DB_FILE = 'journal.db'
@@ -72,13 +74,13 @@ class Journal:
         """Get all journal entries."""
         try:
             cursor = self.conn.cursor()
-            cursor.execute('SELECT * FROM journal_entries')
+            cursor.execute('SELECT * FROM journal_entries ORDER BY number')  # Order by number
             rows = cursor.fetchall()
             return rows
         except sqlite3.Error as e:
             return []
 
-    def edit_entry(self, entry_number, new_title, new_content):
+    def edit_entry(self, entry_number, new_title=None, new_content=None):
         """Edit the title or content of an existing entry."""
         try:
             with self.conn:
@@ -96,9 +98,26 @@ class Journal:
         try:
             with self.conn:
                 self.conn.execute('DELETE FROM journal_entries WHERE number = ?', (entry_number,))
+            self.renumber_entries()  # Renumber entries after deletion
             return f"Entry #{entry_number} deleted successfully."
         except sqlite3.Error as e:
             return f"Error deleting entry: {e}"
+
+    def renumber_entries(self):
+        """Renumber the entries after a deletion."""
+        try:
+            entries = self.get_all_entries()
+            for index, entry in enumerate(entries):
+                new_number = index + 1
+                with self.conn:
+                    self.conn.execute('''
+                        UPDATE journal_entries
+                        SET number = ?
+                        WHERE id = ?
+                    ''', (new_number, entry[0]))  # entry[0] is the id
+        except sqlite3.Error as e:
+            print(f"Error renumbering entries: {e}")
+
 
 class JournalApp(QMainWindow):
     TITLE_MAX_LENGTH = 50
@@ -126,13 +145,13 @@ class JournalApp(QMainWindow):
 
         # Title Label
         self.title_label = QLabel("Journal Manager", self)
-        self.title_label.setFont(QFont("Arial", 20, QFont.Bold))
+        self.title_label.setFont(QFont("Arial", 24, QFont.Bold))  # Increased font size
         self.title_label.setAlignment(Qt.AlignCenter)
         self.main_layout.addWidget(self.title_label)
 
         # Add Entry Button
         self.add_entry_btn = QPushButton("Add Entry", self)
-        self.add_entry_btn.setFont(QFont("Arial", 14))
+        self.add_entry_btn.setFont(QFont("Arial", 16))  # Increased font size
         self.add_entry_btn.setStyleSheet(
             "background-color: #4A90E2; color: white; border: 1px solid #3A80C2; border-radius: 10px;"
         )
@@ -141,7 +160,7 @@ class JournalApp(QMainWindow):
 
         # Show Entries Button
         self.show_entries_btn = QPushButton("Show All Entries", self)
-        self.show_entries_btn.setFont(QFont("Arial", 14))
+        self.show_entries_btn.setFont(QFont("Arial", 16))  # Increased font size
         self.show_entries_btn.setStyleSheet(
             "background-color: #4A90E2; color: white; border: 1px solid #3A80C2; border-radius: 10px;"
         )
@@ -150,7 +169,7 @@ class JournalApp(QMainWindow):
 
         # Edit Entry Button
         self.edit_entry_btn = QPushButton("Edit Entry", self)
-        self.edit_entry_btn.setFont(QFont("Arial", 14))
+        self.edit_entry_btn.setFont(QFont("Arial", 16))  # Increased font size
         self.edit_entry_btn.setStyleSheet(
             "background-color: #F39C12; color: white; border: 1px solid #D68C10; border-radius: 10px;"
         )
@@ -159,7 +178,7 @@ class JournalApp(QMainWindow):
 
         # Delete Entry Button
         self.delete_entry_btn = QPushButton("Delete Entry", self)
-        self.delete_entry_btn.setFont(QFont("Arial", 14))
+        self.delete_entry_btn.setFont(QFont("Arial", 16))  # Increased font size
         self.delete_entry_btn.setStyleSheet(
             "background-color: #E74C3C; color: white; border: 1px solid #D43F3A; border-radius: 10px;"
         )
@@ -169,51 +188,117 @@ class JournalApp(QMainWindow):
         # Footer Label
         self.footer_label = QLabel("Yournal™", self)
         self.footer_label.setAlignment(Qt.AlignCenter)
-        self.footer_label.setStyleSheet("color: #AAB8C2;")
+        self.footer_label.setStyleSheet("color: #AAB8C2; font-size: 14px;")
         self.main_layout.addWidget(self.footer_label)
 
     def add_entry(self):
-        title, ok1 = QInputDialog.getText(self, "Add Entry", f"Enter the title (Max {JournalApp.TITLE_MAX_LENGTH} characters):")
-        if ok1 and len(title) > JournalApp.TITLE_MAX_LENGTH:
-            QMessageBox.warning(self, "Warning", f"Title cannot exceed {JournalApp.TITLE_MAX_LENGTH} characters!")
+        """Show a dialog to add a new journal entry."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add New Entry")
+        dialog.setGeometry(300, 200, 400, 300)
+
+        layout = QVBoxLayout(dialog)
+
+        # Text edit for the title
+        title_edit = QTextEdit()  # Empty since this is a new entry
+        title_edit.setFixedHeight(40)
+        layout.addWidget(QLabel(f"Enter Title (Max {JournalApp.TITLE_MAX_LENGTH} characters):"))
+        layout.addWidget(title_edit)
+
+        # Text edit for the content
+        content_edit = QTextEdit()  # Empty since this is a new entry
+        layout.addWidget(QLabel("Enter Content:"))
+        layout.addWidget(content_edit)
+
+        # Save button
+        save_btn = QPushButton("Save")
+        save_btn.clicked.connect(lambda: self.save_new_entry(title_edit.toPlainText(), content_edit.toPlainText(), dialog))
+        layout.addWidget(save_btn)
+
+        dialog.setLayout(layout)
+        dialog.exec_()
+
+    def save_new_entry(self, title, content, dialog):
+        if len(title) > JournalApp.TITLE_MAX_LENGTH:
+            QMessageBox.warning(self, "Title Too Long", f"Title must be less than {JournalApp.TITLE_MAX_LENGTH + 1} characters.")
             return
-        content, ok2 = QInputDialog.getMultiLineText(self, "Add Entry", "Enter the content:")
-        if ok1 and ok2 and title and content:
-            result = self.journal.add_new_entry(title, content)
-            QMessageBox.information(self, "Result", result)
-        else:
-            QMessageBox.warning(self, "Warning", "Title or content cannot be empty!")
+        if not title.strip() or not content.strip():
+            QMessageBox.warning(self, "Input Error", "Title and content cannot be empty.")
+            return
+
+        result = self.journal.add_new_entry(title, content)
+        QMessageBox.information(self, "Entry Added", result)
+        dialog.close()
 
     def show_entries(self):
+        """Show all journal entries in a new window."""
+        entries_window = QDialog(self)
+        entries_window.setWindowTitle("Journal Entries")
+        entries_window.setGeometry(300, 200, 600, 400)
+
+        layout = QVBoxLayout(entries_window)
+
+        # List widget to display the entries
+        entries_list = QListWidget(entries_window)
+        layout.addWidget(entries_list)
+
+        # Fetching all entries
         entries = self.journal.get_all_entries()
-        if entries:
-            entry_list = "\n".join([f"#{row[1]} | {row[2]} | {row[3]} | {row[4]}" for row in entries])
-            QMessageBox.information(self, "All Entries", entry_list)
+
+        if not entries:
+            entries_list.addItem("No entries found.")
         else:
-            QMessageBox.information(self, "All Entries", "No entries found.")
+            for entry in entries:
+                entry_text = f"Entry #{entry[1]}: {entry[2]} - {entry[3]} on {entry[4]}"
+                item = QListWidgetItem(entry_text)
+                entries_list.addItem(item)
+
+        # Button to close the entries window
+        close_button = QPushButton("Close", entries_window)
+        close_button.clicked.connect(entries_window.close)
+        layout.addWidget(close_button)
+
+        entries_window.setLayout(layout)
+        entries_window.exec_()  # Show the entries dialog
 
     def edit_entry(self):
-        entry_number, ok = QInputDialog.getInt(self, "Edit Entry", "Enter the entry number to edit:")
+        """Show a dialog to edit an existing journal entry."""
+        entry_number, ok = QInputDialog.getInt(self, "Edit Entry", "Enter Entry Number:")
         if ok:
-            new_title, ok1 = QInputDialog.getText(self, "Edit Entry", f"Enter the new title (Max {JournalApp.TITLE_MAX_LENGTH} characters):")
-            if ok1 and len(new_title) > JournalApp.TITLE_MAX_LENGTH:
-                QMessageBox.warning(self, "Warning", f"Title cannot exceed {JournalApp.TITLE_MAX_LENGTH} characters!")
-                return
-            new_content, ok2 = QInputDialog.getMultiLineText(self, "Edit Entry", "Enter the new content:")
-            if ok1 and ok2:
-                result = self.journal.edit_entry(entry_number, new_title, new_content)
-                QMessageBox.information(self, "Result", result)
-            else:
-                QMessageBox.warning(self, "Warning", "Nothing to update!")
+            entry = self.journal.get_all_entries()
+            if entry:
+                for e in entry:
+                    if e[1] == entry_number:
+                        new_title, ok1 = QInputDialog.getText(self, "Edit Title", "Enter New Title:", text=e[2])
+                        new_content, ok2 = QInputDialog.getText(self, "Edit Content", "Enter New Content:", text=e[3])
+                        if ok1 and ok2:
+                            result = self.journal.edit_entry(entry_number, new_title, new_content)
+                            QMessageBox.information(self, "Entry Edited", result)
+                        return
+            QMessageBox.warning(self, "Entry Not Found", f"No entry found with number {entry_number}.")
 
     def delete_entry(self):
-        entry_number, ok = QInputDialog.getInt(self, "Delete Entry", "Enter the entry number to delete:")
+        """Show a dialog to delete a journal entry."""
+        entry_number, ok = QInputDialog.getInt(self, "Delete Entry", "Enter Entry Number:")
         if ok:
             result = self.journal.delete_entry(entry_number)
-            QMessageBox.information(self, "Result", result)
+            QMessageBox.information(self, "Entry Deletion", result)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    journal_app = JournalApp()
-    journal_app.show()
+    window = JournalApp()
+    window.show()
     sys.exit(app.exec_())
+
+
+
+
+
+
+
+
+
+
+
+
