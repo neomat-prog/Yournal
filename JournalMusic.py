@@ -266,16 +266,48 @@ class JournalApp(QMainWindow):
         entry_number, ok = QInputDialog.getInt(self, "Edit Entry", "Enter Entry Number:")
         if ok:
             entry = self.journal.get_all_entries()
-            if entry:
-                for e in entry:
-                    if e[1] == entry_number:
-                        new_title, ok1 = QInputDialog.getText(self, "Edit Title", "Enter New Title:", text=e[2])
-                        new_content, ok2 = QInputDialog.getText(self, "Edit Content", "Enter New Content:", text=e[3])
-                        if ok1 and ok2:
-                            result = self.journal.edit_entry(entry_number, new_title, new_content)
-                            QMessageBox.information(self, "Entry Edited", result)
-                        return
+            for e in entry:
+                if e[1] == entry_number:
+                    dialog = QDialog(self)
+                    dialog.setWindowTitle(f"Edit Entry #{entry_number}")
+                    dialog.setGeometry(300, 200, 400, 300)
+
+                    layout = QVBoxLayout(dialog)
+
+                    # Text edit for the title
+                    title_edit = QTextEdit()
+                    title_edit.setPlainText(e[2])  # Set current title
+                    title_edit.setFixedHeight(40)
+                    layout.addWidget(QLabel(f"Edit Title (Max {JournalApp.TITLE_MAX_LENGTH} characters):"))
+                    layout.addWidget(title_edit)
+
+                    # Text edit for the content
+                    content_edit = QTextEdit()
+                    content_edit.setPlainText(e[3])  # Set current content
+                    layout.addWidget(QLabel("Edit Content:"))
+                    layout.addWidget(content_edit)
+
+                    # Save button
+                    save_btn = QPushButton("Save Changes")
+                    save_btn.clicked.connect(lambda: self.save_edit_entry(entry_number, title_edit.toPlainText(), content_edit.toPlainText(), dialog))
+                    layout.addWidget(save_btn)
+
+                    dialog.setLayout(layout)
+                    dialog.exec_()
+                    return
             QMessageBox.warning(self, "Entry Not Found", f"No entry found with number {entry_number}.")
+
+    def save_edit_entry(self, entry_number, new_title, new_content, dialog):
+        if len(new_title) > JournalApp.TITLE_MAX_LENGTH:
+            QMessageBox.warning(self, "Title Too Long", f"Title must be less than {JournalApp.TITLE_MAX_LENGTH + 1} characters.")
+            return
+        if not new_title.strip() or not new_content.strip():
+            QMessageBox.warning(self, "Input Error", "Title and content cannot be empty.")
+            return
+
+        result = self.journal.edit_entry(entry_number, new_title, new_content)
+        QMessageBox.information(self, "Entry Edited", result)
+        dialog.close()
 
     def delete_entry(self):
         """Show a dialog to delete a journal entry."""
@@ -290,6 +322,24 @@ if __name__ == "__main__":
     window = JournalApp()
     window.show()
     sys.exit(app.exec_())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
