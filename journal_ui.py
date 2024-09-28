@@ -1,7 +1,7 @@
 import sqlite3
 import time
 import tkinter as tk
-from tkinter import messagebox, simpledialog
+from tkinter import messagebox, simpledialog, Scrollbar, Text
 
 
 class JournalEntry:
@@ -110,44 +110,76 @@ class JournalApp:
         self.journal = Journal()
         self.root = root
         self.root.title("Journal Manager")
+        self.root.geometry("600x400")
+        self.root.config(bg="#F0F0F0")
 
-        self.main_frame = tk.Frame(self.root)
-        self.main_frame.pack(padx=10, pady=10)
+        # Main Frame
+        self.main_frame = tk.Frame(self.root, bg="#F0F0F0")
+        self.main_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+
+        # Title label
+        title_label = tk.Label(self.main_frame, text="Journal Application", font=("Arial", 18), bg="#F0F0F0")
+        title_label.grid(row=0, column=0, columnspan=3, pady=10)
+
+        # Add Entry Form (Title + Content)
+        self.title_label = tk.Label(self.main_frame, text="Title", bg="#F0F0F0", font=("Arial", 12))
+        self.title_label.grid(row=1, column=0, sticky=tk.W)
+        self.title_entry = tk.Entry(self.main_frame, width=40, font=("Arial", 12))
+        self.title_entry.grid(row=1, column=1, padx=10)
+
+        self.content_label = tk.Label(self.main_frame, text="Content", bg="#F0F0F0", font=("Arial", 12))
+        self.content_label.grid(row=2, column=0, sticky=tk.W)
+        self.content_text = tk.Text(self.main_frame, height=5, width=40, font=("Arial", 12))
+        self.content_text.grid(row=2, column=1, padx=10)
 
         # Add Entry Button
-        self.add_entry_btn = tk.Button(self.main_frame, text="Add Entry", command=self.add_entry)
-        self.add_entry_btn.grid(row=0, column=0, padx=10, pady=5)
+        self.add_entry_btn = tk.Button(self.main_frame, text="Add Entry", command=self.add_entry, bg="#007BFF", fg="white", font=("Arial", 12))
+        self.add_entry_btn.grid(row=3, column=1, sticky=tk.W, pady=10)
 
-        # Show Entries Button
-        self.show_entries_btn = tk.Button(self.main_frame, text="Show All Entries", command=self.show_entries)
-        self.show_entries_btn.grid(row=0, column=1, padx=10, pady=5)
+        # Entry Actions
+        self.show_entries_btn = tk.Button(self.main_frame, text="Show All Entries", command=self.show_entries, bg="#28A745", fg="white", font=("Arial", 12))
+        self.show_entries_btn.grid(row=4, column=0, padx=5, pady=5)
 
-        # Edit Entry Button
-        self.edit_entry_btn = tk.Button(self.main_frame, text="Edit Entry", command=self.edit_entry)
-        self.edit_entry_btn.grid(row=1, column=0, padx=10, pady=5)
+        self.edit_entry_btn = tk.Button(self.main_frame, text="Edit Entry", command=self.edit_entry, bg="#FFC107", fg="white", font=("Arial", 12))
+        self.edit_entry_btn.grid(row=4, column=1, sticky=tk.W, padx=5, pady=5)
 
-        # Delete Entry Button
-        self.delete_entry_btn = tk.Button(self.main_frame, text="Delete Entry", command=self.delete_entry)
-        self.delete_entry_btn.grid(row=1, column=1, padx=10, pady=5)
+        self.delete_entry_btn = tk.Button(self.main_frame, text="Delete Entry", command=self.delete_entry, bg="#DC3545", fg="white", font=("Arial", 12))
+        self.delete_entry_btn.grid(row=5, column=0, padx=5, pady=5)
+
+        # Entry Display Area
+        self.entry_display = Text(self.main_frame, height=8, width=60, font=("Arial", 12))
+        self.entry_display.grid(row=6, column=0, columnspan=2, pady=10)
+        self.entry_display.config(state=tk.DISABLED)  # Read-only text area
+
+        # Scrollbar for Entry Display
+        self.scrollbar = Scrollbar(self.main_frame, command=self.entry_display.yview)
+        self.scrollbar.grid(row=6, column=2, sticky="ns")
+        self.entry_display['yscrollcommand'] = self.scrollbar.set
 
     def add_entry(self):
         """Add a new journal entry."""
-        title = simpledialog.askstring("Input", "Enter the title:")
-        content = simpledialog.askstring("Input", "Enter the content:")
+        title = self.title_entry.get().strip()
+        content = self.content_text.get("1.0", tk.END).strip()
         if title and content:
             result = self.journal.add_new_entry(title, content)
             messagebox.showinfo("Result", result)
+            self.title_entry.delete(0, tk.END)
+            self.content_text.delete("1.0", tk.END)
         else:
             messagebox.showwarning("Warning", "Title or content cannot be empty!")
 
     def show_entries(self):
-        """Show all journal entries in a popup."""
+        """Show all journal entries in the display area."""
+        self.entry_display.config(state=tk.NORMAL)
+        self.entry_display.delete("1.0", tk.END)
+
         entries = self.journal.get_all_entries()
         if entries:
-            entry_list = "\n".join([f"#{row[1]} | {row[2]} | {row[3]} | {row[4]}" for row in entries])
-            messagebox.showinfo("All Entries", entry_list)
+            for row in entries:
+                self.entry_display.insert(tk.END, f"#{row[1]} | {row[2]} | {row[3]} | {row[4]}\n")
         else:
-            messagebox.showinfo("All Entries", "No entries found.")
+            self.entry_display.insert(tk.END, "No entries found.\n")
+        self.entry_display.config(state=tk.DISABLED)
 
     def edit_entry(self):
         """Edit an existing journal entry."""
@@ -158,6 +190,7 @@ class JournalApp:
             if new_title or new_content:
                 result = self.journal.edit_entry(entry_number, new_title or "", new_content or "")
                 messagebox.showinfo("Result", result)
+                self.show_entries()
             else:
                 messagebox.showwarning("Warning", "Nothing to update!")
         else:
@@ -169,6 +202,7 @@ class JournalApp:
         if entry_number:
             result = self.journal.delete_entry(entry_number)
             messagebox.showinfo("Result", result)
+            self.show_entries()
         else:
             messagebox.showwarning("Warning", "Entry number cannot be empty!")
 
