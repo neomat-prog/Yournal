@@ -2,7 +2,7 @@ import sys
 import tkinter as tk
 from tkinter import ttk
 from self_goals import TaskApp  # Ensure TaskApp is properly defined in self_goals
-from JournalMusic import JournalApp  # Ensure JournalApp is defined in journal_music
+from Journal import JournalApp  # Ensure JournalApp is defined in journal_music
 from PyQt5.QtWidgets import QApplication
 
 class MainApp:
