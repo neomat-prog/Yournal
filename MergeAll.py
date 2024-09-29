@@ -1,8 +1,8 @@
 import sys
 import tkinter as tk
 from tkinter import ttk
-from self_goals import TaskApp  # Ensure TaskApp is properly defined in self_goals
-from Journal import JournalApp  # Ensure JournalApp is defined in journal_music
+from Self_Goals import TaskApp  # Ensure TaskApp is properly defined
+from Journal import JournalApp  # Ensure JournalApp is defined
 from PyQt5.QtWidgets import QApplication
 
 class MainApp:
@@ -21,7 +21,7 @@ class MainApp:
         button_frame.pack(pady=10)
 
         # Create two buttons to launch the applications
-        journal_button = ttk.Button(button_frame, text="Yournal", command=self.open_journal_app)
+        journal_button = ttk.Button(button_frame, text="Journal", command=self.open_journal_app)
         journal_button.pack(pady=10, ipadx=20, ipady=10, padx=10)
 
         task_button = ttk.Button(button_frame, text="Self Goals", command=self.open_task_app)
@@ -57,9 +57,13 @@ class MainApp:
 
     def open_task_app(self):
         try:
-            # Open Task App in a new window
-            new_window = tk.Toplevel(self.master)
-            task_app = TaskApp(new_window)  # Pass the new_window parameter
+            # Open Task App in a new window using PyQt5
+            app = QApplication(sys.argv)
+            task_app = TaskApp()  # Create the TaskApp instance
+            task_app.show()
+            self.master.withdraw()  # Hide the Tkinter window
+            app.exec_()  # Run the PyQt5 application loop
+            self.master.deiconify()  # Re-show the Tkinter window when done
         except Exception as e:
             print(f"Error opening task app: {e}")
 
@@ -67,3 +71,4 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = MainApp(root)
     root.mainloop()
+
